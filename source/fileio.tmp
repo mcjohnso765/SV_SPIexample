@@ -1,0 +1,44 @@
+`include "source/gpf_defines.vh"
+
+module tb_decode();
+  reg [`NIN:0] tbSens;
+  reg [`ILEN:0] tbInstr;
+  reg tbTimeout;
+  wire [`NOUT:0] tbNextOut;
+  wire [`NST:0] tbState, tbNextSt;
+  wire tbTrig
+  wire [`NCNT:0] tbTime;
+  integer tbFile;
+  reg eof,res;
+  //reg [`ILEN:0] string;
+  string sInstr;
+
+  decode DUT (.dSens(tbSens), .dInstr(tbInstr), .dTimeout(tbTimeout)
+              .dNextOut(tbNextOut), .dState(tbState), .dNextSt(tbNextSt),
+              .dTrig(tbTrig), .dTime(tbTime)
+              ); 
+
+  initial
+    begin
+
+    tbFile = $fopen("gpftest.rdm")
+    // for each line of file, load vector
+    //
+    //
+    // sample instruction. BAND, BOR, SETT, WAND, WOR
+    //                      opcode    next st   input mask  output mask
+    // tbInstr = {`OPLEN1'd`BAND, `NST1'd5, `NINT'b00001, `NOUT1'b0001};
+    //
+    //    opcode for set counter,  counter value to set
+    // tbInstr = {`OPLEN1'd`SETT, `NCNT1'd200};
+    
+    eof = $feof(tbFile);
+    while (eof == 0) 
+      begin
+      res = $fgets(sInstr,`ILEN1,tbFile); 
+      tbInstr = 
+      #20;
+      eof = $feof(tbFile);
+      end
+
+endmodule

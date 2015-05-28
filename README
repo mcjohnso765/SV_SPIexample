@@ -1,0 +1,3 @@
+SPI is a directory containing an example for ece337 that demonstrates use
+of System Verilog interfaces with port maps, simple random test vector
+generation, and asserting checking of results. 
