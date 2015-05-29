@@ -27,6 +27,28 @@ add wave -noupdate /tb_spi_system/SLAVE1/rcvd_nxt
 add wave -noupdate /tb_spi_system/SLAVE1/rcvd_r
 add wave -noupdate /tb_spi_system/SLAVE1/buf_nxt
 add wave -noupdate /tb_spi_system/SLAVE1/buf_r
+add wave -noupdate /tb_spi_system/SLAVE1/inBuf_st
+add wave -noupdate /tb_spi_system/SLAVE1/inBuf_st_nxt
+add wave -noupdate /tb_spi_system/SLAVE1/inBuf_clear
+add wave -noupdate /tb_spi_system/SLAVE1/xsh_ena
+add wave -noupdate /tb_spi_system/SLAVE1/xmit_ctrl_st
+add wave -noupdate /tb_spi_system/SLAVE1/xmit_ctrl_st_nxt
+add wave -noupdate /tb_spi_system/SLAVE1/xmit_shift
+add wave -noupdate /tb_spi_system/SLAVE1/xmit_load
+add wave -noupdate /tb_spi_system/SLAVE1/xmit_r
+add wave -noupdate /tb_spi_system/SLAVE1/xmit_nxt
+add wave -noupdate /tb_spi_system/SLAVE1/inBuf
+add wave -noupdate /tb_spi_system/SLAVE1/inBuf_nxt
+add wave -noupdate /tb_spi_system/SLAVE1/strobe_sync
+add wave -noupdate -divider {assertion vars}
+add wave -noupdate /tb_spi_system/checkXmit
+add wave -noupdate /tb_spi_system/checkRcvd
+add wave -noupdate /tb_spi_system/checkSS
+add wave -noupdate /tb_spi_system/checkReady
+add wave -noupdate /tb_spi_system/sstrobe
+add wave -noupdate /tb_spi_system/sToXmit
+add wave -noupdate /tb_spi_system/srandToXmit
+add wave -noupdate /tb_spi_system/srandSS
 add wave -noupdate -divider {Slave 2}
 add wave -noupdate /tb_spi_system/SLAVE2/Clk_i
 add wave -noupdate /tb_spi_system/SLAVE2/Rst_ni
@@ -42,6 +64,16 @@ add wave -noupdate /tb_spi_system/SLAVE2/rcvd_nxt
 add wave -noupdate /tb_spi_system/SLAVE2/rcvd_r
 add wave -noupdate /tb_spi_system/SLAVE2/buf_nxt
 add wave -noupdate /tb_spi_system/SLAVE2/buf_r
+add wave -noupdate /tb_spi_system/SLAVE2/xsh_ena
+add wave -noupdate /tb_spi_system/SLAVE2/xmit_ctrl_st
+add wave -noupdate /tb_spi_system/SLAVE2/xmit_ctrl_st_nxt
+add wave -noupdate /tb_spi_system/SLAVE2/xmit_shift
+add wave -noupdate /tb_spi_system/SLAVE2/xmit_load
+add wave -noupdate /tb_spi_system/SLAVE2/xmit_r
+add wave -noupdate /tb_spi_system/SLAVE2/xmit_nxt
+add wave -noupdate /tb_spi_system/SLAVE2/inBuf
+add wave -noupdate /tb_spi_system/SLAVE2/inBuf_nxt
+add wave -noupdate /tb_spi_system/SLAVE2/strobe_sync
 add wave -noupdate -divider Master
 add wave -noupdate /tb_spi_system/MASTER/Buf_i
 add wave -noupdate /tb_spi_system/MASTER/ss_i
@@ -58,13 +90,8 @@ add wave -noupdate /tb_spi_system/MASTER/ss_r
 add wave -noupdate /tb_spi_system/MASTER/ss_nxt
 add wave -noupdate /tb_spi_system/MASTER/sck_r
 add wave -noupdate /tb_spi_system/MASTER/sck_nxt
-add wave -noupdate -divider {assertion vars}
-add wave -noupdate /tb_spi_system/checkXmit
-add wave -noupdate /tb_spi_system/checkRcvd
-add wave -noupdate /tb_spi_system/checkSS
-add wave -noupdate /tb_spi_system/checkReady
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {4080000 ps} 0}
+WaveRestoreCursors {{Cursor 1} {93090 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -80,4 +107,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ps
 update
-WaveRestoreZoom {0 ps} {6300 ns}
+WaveRestoreZoom {0 ps} {2541900 ps}

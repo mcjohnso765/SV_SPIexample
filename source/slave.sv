@@ -94,7 +94,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
       inBuf_st = IS_EMPTY;
       xmit_ctrl_st = STROBE_WAIT;
       xmit_r = 8'b0;
-    end else
+    end else begin
       strobe2 = strobe;
       strobe_sync = strobe2;
       inBuf = inBuf_nxt;
@@ -136,19 +136,22 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
         xmit_ctrl_st_nxt = XMIT;
       XMIT:
         if (done) xmit_ctrl_st_nxt = STROBE_WAIT;
+    endcase
   end
 
   // xmit output
   always_comb begin
     xmit_shift = 1'b0;
     xmit_load = 1'b0;
-    inBuf_Clear = 1'b0;
+    inBuf_clear = 1'b0;
     case (xmit_ctrl_st)
-      LOAD:
+      LOAD: begin
         xmit_load = 1'b1;
-        inBuf_Clear = 1'b1;
+        inBuf_clear = 1'b1;
+        end
       XMIT:
         xmit_shift = 1'b1;
+    endcase
   end
 
   // xmit shift reg next state

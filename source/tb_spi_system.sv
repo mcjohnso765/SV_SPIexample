@@ -19,10 +19,14 @@ module tb_spi_system#(parameter TCLK=20);
   reg [7:0] checkRcvd;
   reg [1:0] checkSS; // when master strobed, save slave select 
   reg checkReady; // becomes 1 when selected slave is ready
+  reg [1:0] sstrobe; // signal to one or both slaves when value is available to load to xmit
+  reg [7:0] sToXmit; // date to give to slave to be transmitted
+  reg [7:0] srandToXmit; 
+  reg [1:0] srandSS; // random slave select for loading slave transmit values
 
   master MASTER(.Buf_i(ToXmit),.ss_i(ss),.Strobe_i(XmitStrobe),.Spim(spi.Master),.Clk_i(tbClk), .Rst_ni(Rst_n));
-  slave #(.ID(0)) SLAVE1 (.Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n),.Ready_o(Ready[0]), .Rcvd_o(Rcvd[0]));
-  slave #(.ID(1)) SLAVE2 (.Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n),.Ready_o(Ready[1]), .Rcvd_o(Rcvd[1]));
+  slave #(.ID(0)) SLAVE1 (.Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n),.strobe(sstrobe[0]),.toXmit(sToXmit),.Ready_o(Ready[0]), .Rcvd_o(Rcvd[0]));
+  slave #(.ID(1)) SLAVE2 (.Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n),.strobe(sstrobe[1]),.toXmit(sToXmit),.Ready_o(Ready[1]), .Rcvd_o(Rcvd[1]));
 
   // tb assertion logic
 
@@ -90,5 +94,32 @@ module tb_spi_system#(parameter TCLK=20);
     XmitStrobe = 1'b0;
     #(TCLK*delay);
   endtask
+
+  initial
+    begin
+    randToXmit = $urandom(3); // set fixed seed for repeatability
+    master_init();
+
+    for (testCount = 0; testCount < 100; testCount++) begin
+      srandToXmit = $urandom();
+      srandSS[0] = $urandom();
+      srandSS[1] = ~srandSS[0];
+      slave_xmit(srandToXmit,randSS,33);
+      end
+    end
+
+  task slave_xmit (input [7:0] datin, input [1:0] slave_mask, input integer delay);
+    sToXmit = datin;
+    sstrobe = 2'b0;
+    @(posedge tbClk);
+    #(TCLK/2);
+    sstrobe = slave_mask;
+    @(posedge tbClk);
+    #(TCLK/2);
+    sstrobe = 2'b0;
+    #(TCLK*delay);
+  endtask
+
+
 
 endmodule
