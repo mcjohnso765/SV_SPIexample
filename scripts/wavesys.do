@@ -31,6 +31,7 @@ add wave -noupdate /tb_spi_system/SLAVE1/inBuf_st
 add wave -noupdate /tb_spi_system/SLAVE1/inBuf_st_nxt
 add wave -noupdate /tb_spi_system/SLAVE1/inBuf_clear
 add wave -noupdate /tb_spi_system/SLAVE1/xsh_ena
+add wave -noupdate /tb_spi_system/SLAVE1/ss_rise
 add wave -noupdate /tb_spi_system/SLAVE1/xmit_ctrl_st
 add wave -noupdate /tb_spi_system/SLAVE1/xmit_ctrl_st_nxt
 add wave -noupdate /tb_spi_system/SLAVE1/xmit_shift
@@ -91,7 +92,7 @@ add wave -noupdate /tb_spi_system/MASTER/ss_nxt
 add wave -noupdate /tb_spi_system/MASTER/sck_r
 add wave -noupdate /tb_spi_system/MASTER/sck_nxt
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {93090 ps} 0}
+WaveRestoreCursors {{Cursor 1} {2500000 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -107,4 +108,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ps
 update
-WaveRestoreZoom {0 ps} {2541900 ps}
+WaveRestoreZoom {0 ps} {10500 ns}

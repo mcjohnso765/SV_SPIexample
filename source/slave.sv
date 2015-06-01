@@ -26,6 +26,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
   xmit_ctrl_st_t xmit_ctrl_st, xmit_ctrl_st_nxt;
   logic xmit_shift, xmit_load;
   logic [7:0] xmit_r, xmit_nxt, inBuf,inBuf_nxt;
+  logic ss1, ss2, ss_rise; // = 1 for one clock cycle after this slave goes from not selected to selected
 
 
   // Receiving 
@@ -55,17 +56,20 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
 
   always_comb begin
     bitcnt_nxt = bitcnt_r;
-    if (sh_ena) 
+    if (sh_ena) begin
       if (~done)
         bitcnt_nxt = bitcnt_r + 1;
       else
         bitcnt_nxt = 4'd1;
+      end
+    else if (bitcnt_r == 4'd8)
+      bitcnt_nxt = 4'd0;
   end 
 
   always_comb begin
     buf_nxt = buf_r;
     if (sh_ena)
-      buf_nxt = {mosi_sync2,buf_r[7:1]};
+      buf_nxt = {buf_r[6:0],mosi_sync2};
   end
 
   assign done = (bitcnt_r == 4'd8);
@@ -88,21 +92,27 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
 
   always_ff @(posedge Clk_i, negedge Rst_ni) begin
     if (Rst_ni == 1'b0) begin
-      strobe2 = 1'b0;
-      strobe_sync = 1'b0;
-      inBuf = 8'b0;
-      inBuf_st = IS_EMPTY;
-      xmit_ctrl_st = STROBE_WAIT;
-      xmit_r = 8'b0;
+      strobe2 <= 1'b0;
+      strobe_sync <= 1'b0;
+      inBuf <= 8'b0;
+      inBuf_st <= IS_EMPTY;
+      xmit_ctrl_st <= STROBE_WAIT;
+      xmit_r <= 8'b0;
+      ss1 <= 1'b0;
+      ss2 <= 1'b0;
     end else begin
-      strobe2 = strobe;
-      strobe_sync = strobe2;
-      inBuf = inBuf_nxt;
-      inBuf_st = inBuf_st_nxt;
-      xmit_ctrl_st = xmit_ctrl_st_nxt;
-      xmit_r = xmit_nxt;
+      strobe2 <= strobe;
+      strobe_sync <= strobe2;
+      inBuf <= inBuf_nxt;
+      inBuf_st <= inBuf_st_nxt;
+      xmit_ctrl_st <= xmit_ctrl_st_nxt;
+      xmit_r <= xmit_nxt;
+      ss1 <= Spis.ss[ID];
+      ss2 <= ss1;
     end
   end
+
+  assign ss_rise = !ss2 && ss1;
 
   // buff NS
   always_comb begin
@@ -122,7 +132,8 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
   end
 
   //sck fall edge
-  assign xsh_ena = !sck1 && sck2 && (Spis.ss[ID]==1'b1);
+  //assign xsh_ena = !sck1 && sck2 && (Spis.ss[ID]==1'b1);
+  assign xsh_ena = sh_ena && (xmit_ctrl_st == XMIT);
 
   // xmit ctrl
   always_comb begin
@@ -131,7 +142,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
       STROBE_WAIT:
         if (inBuf_st == IS_FULL) xmit_ctrl_st_nxt = LOAD_WAIT;
       LOAD_WAIT:
-        if ((bitcnt_r == 4'd0) || (bitcnt_r == 4'd1)) xmit_ctrl_st_nxt = LOAD;
+        if ((bitcnt_r == 4'd8) || ss_rise) xmit_ctrl_st_nxt = LOAD;
       LOAD:
         xmit_ctrl_st_nxt = XMIT;
       XMIT:
@@ -154,17 +165,16 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
     endcase
   end
 
-  // xmit shift reg next state
   always_comb begin
     xmit_nxt = xmit_r;
     if (xmit_load) begin
       xmit_nxt = inBuf;
       end
     else if (xsh_ena) begin
-      xmit_nxt = xmit_r >> 1;
+      xmit_nxt = xmit_r << 1;
       end
   end
 
-  assign Spis.miso = (Spis.ss[ID]==1'b1) ? xmit_r[0] : 1'bz;
+  assign Spis.miso = (Spis.ss[ID]==1'b1) ? xmit_r[7] : 1'bz;
 
 endmodule

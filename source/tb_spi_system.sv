@@ -12,6 +12,8 @@ module tb_spi_system#(parameter TCLK=20);
   logic [7:0] ToXmit,randToXmit; // data give to master to be transmitted
   logic [1:0] [7:0] Rcvd; // data received by slaves
   logic [1:0] ss,randSS;
+  logic [7:0] mRcvd; // data received by master
+  logic mReady; // indicates new byte received by master
   integer iRandom, testCount;
   SPIbus spi();
 
@@ -24,7 +26,7 @@ module tb_spi_system#(parameter TCLK=20);
   reg [7:0] srandToXmit; 
   reg [1:0] srandSS; // random slave select for loading slave transmit values
 
-  master MASTER(.Buf_i(ToXmit),.ss_i(ss),.Strobe_i(XmitStrobe),.Spim(spi.Master),.Clk_i(tbClk), .Rst_ni(Rst_n));
+  master MASTER(.Buf_i(ToXmit),.ss_i(ss),.Strobe_i(XmitStrobe),.Spim(spi.Master),.Clk_i(tbClk), .Rst_ni(Rst_n), .Ready_o(mReady),.Rcvd_o(mRcvd));
   slave #(.ID(0)) SLAVE1 (.Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n),.strobe(sstrobe[0]),.toXmit(sToXmit),.Ready_o(Ready[0]), .Rcvd_o(Rcvd[0]));
   slave #(.ID(1)) SLAVE2 (.Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n),.strobe(sstrobe[1]),.toXmit(sToXmit),.Ready_o(Ready[1]), .Rcvd_o(Rcvd[1]));
 

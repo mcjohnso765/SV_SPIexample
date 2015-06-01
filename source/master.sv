@@ -1,5 +1,4 @@
-`include "source/spi_interface.svh"
-
+`include "source/spi_interface.svh" 
 // master
 //   Buff_o = 8 bit value to be transmitted
 //   Strobe_i = new input value available
@@ -12,7 +11,7 @@
 //      it to start counting
 //    parallel to serial shift register with shift enable
 
-module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i, SPIbus.Master Spim, input Clk_i, Rst_ni); 
+module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i, SPIbus.Master Spim, input Clk_i, Rst_ni, output reg Ready_o, output reg [7:0] Rcvd_o); 
   logic [7:0] buf_r,buf_nxt;
   logic [3:0] bitcnt_r,bitcnt_nxt;
   logic [7:0] clkcnt_r,clkcnt_nxt;
@@ -21,6 +20,8 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
   logic [7:0] clkdiv2;
 
   assign clkdiv2 = CLKDIV >> 1;
+
+  //Transmitter
 
   always_ff @(posedge Clk_i, negedge Rst_ni) begin
     if (Rst_ni == 1'b0) begin
@@ -47,7 +48,7 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
       ss_nxt = ss_i;
       buf_nxt = Buf_i;
     end else if (clkcnt_r == CLKDIV) begin
-      buf_nxt = {1'b0,buf_r[7:1]};
+      buf_nxt = {buf_r[6:0],1'b0};
     end
   end
 
@@ -62,7 +63,7 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
     end 
   end
 
-  assign Spim.mosi = buf_r[0];
+  assign Spim.mosi = buf_r[7];
   assign Spim.sck = sck_r;
   assign Spim.ss = ss_r;
 
@@ -80,8 +81,8 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
       end
     end else if (bitcnt_r == 9) begin
       bitcnt_nxt = 0;
+      end
     end
-  end
 
   // clkcnt continuously loops from 1 to CLKDIV after strobe
   always_comb begin
@@ -96,7 +97,22 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
       clkcnt_nxt = 1;
     end else begin
       clkcnt_nxt = clkcnt_r + 1;
+      end
     end
-  end
+
+  //Receiver
+
+  always_ff @(posedge Clk_i, negedge Rst_ni) begin
+    if (Rst_ni == 1'b0) begin
+      Ready_o <= 1'b0;
+      Rcvd_o <= 8'd0;
+      end
+    else begin
+      if (clkcnt_r == clkdiv2) Rcvd_o <= {Rcvd_o[6:0],Spim.miso};
+      if (bitcnt_r == 8'd8) Ready_o <= 1'b1;
+      else if (clkcnt_r == clkdiv2) Ready_o <= 1'b0;
+      end
+    end
+
 
 endmodule
