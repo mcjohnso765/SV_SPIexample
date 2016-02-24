@@ -4,12 +4,10 @@
 //   sck rising edge detector, output as sh_ena only when slave select asserted
 //   serial to parallel shift reg with shift enable (sh_ena)
 //   bit counter: 0 to 7 counter, reset to 0, assert Done on count of 7, enabled by sh_ena, wrap-around 7 to 0
-//   output buffer Rcvd_o with enable. Loads shift reg contents on Done from bit counter
-//   Ready_o = Done from bit counter
+//   output buffer Ctrl.Rcvd with enable. Loads shift reg contents on Done from bit counter
+//   Ctrl.Ready = Done from bit counter
 
-// currently only a receiver design
-
-module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input strobe, input [7:0] toXmit, output reg Ready_o, output [7:0] Rcvd_o); 
+module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk_i, Rst_ni);
 
   logic sck1,sck2;
   logic [3:0] bitcnt_r,bitcnt_nxt;
@@ -17,7 +15,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
   logic [7:0] rcvd_nxt,rcvd_r,buf_nxt,buf_r;
   logic mosi_sync1, mosi_sync2;
 
-  logic strobe2, strobe_sync; // indicate new data available on toXmit;
+  logic strobe2, strobe_sync; // indicate new data available on Ctrl.toXmit;
   typedef enum {IS_EMPTY,IS_FULL} inBuf_st_t;
   inBuf_st_t inBuf_st, inBuf_st_nxt;
   logic inBuf_clear;
@@ -80,11 +78,11 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
       rcvd_nxt = buf_r;
   end
 
-  assign Rcvd_o = rcvd_r;
+  assign Ctrl.Rcvd = rcvd_r;
   
   always_ff @(posedge Clk_i, negedge Rst_ni) begin
-    if (Rst_ni == 1'b0) Ready_o <= 1'b0;
-    else Ready_o <= done;
+    if (Rst_ni == 1'b0) Ctrl.Ready <= 1'b0;
+    else Ctrl.Ready <= done;
     end
 
   // Transmitting
@@ -101,7 +99,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
       ss1 <= 1'b0;
       ss2 <= 1'b0;
     end else begin
-      strobe2 <= strobe;
+      strobe2 <= Ctrl.strobe;
       strobe_sync <= strobe2;
       inBuf <= inBuf_nxt;
       inBuf_st <= inBuf_st_nxt;
@@ -117,7 +115,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, input Clk_i, Rst_ni, input st
   // buff NS
   always_comb begin
     inBuf_nxt = inBuf;
-    if (strobe_sync) inBuf_nxt = toXmit; 
+    if (strobe_sync) inBuf_nxt = Ctrl.toXmit; 
   end
 
   // Buff ctrl NS

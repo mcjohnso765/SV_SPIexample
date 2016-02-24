@@ -1,17 +1,16 @@
 `include "source/spi_interface.svh" 
 // master
-//   Buff_o = 8 bit value to be transmitted
-//   Strobe_i = new input value available
-//   ss_i = 2 bit to identify slave to be selected
+//   Ctrl = SPI module view of control interface. see spi_interface.svh
 //   Spim = master view of SPIbus interface
 // 
 // Components: 
 //    SPI clock generator: a 0 to 8 x CLKDIV counter, generates
-//      one SCK cycle per CLKDIV clock cycles. Strobe_i triggers
+//      one SCK cycle per CLKDIV clock cycles. Ctrl.strobe triggers
 //      it to start counting
 //    parallel to serial shift register with shift enable
 
-module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i, SPIbus.Master Spim, input Clk_i, Rst_ni, output reg Ready_o, output reg [7:0] Rcvd_o); 
+module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_i, Rst_ni);
+
   logic [7:0] buf_r,buf_nxt;
   logic [3:0] bitcnt_r,bitcnt_nxt;
   logic [7:0] clkcnt_r,clkcnt_nxt;
@@ -29,7 +28,7 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
       bitcnt_r <= 8'd0;
       sck_r <= 1'b0;
       buf_r <=  8'd0;
-      ss_r <= 1'd0;
+      ss_r <= 2'd0;
       end
     else begin
       clkcnt_r <= clkcnt_nxt;
@@ -44,9 +43,9 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
   always_comb begin
     buf_nxt = buf_r;
     ss_nxt = ss_r;
-    if (Strobe_i) begin
-      ss_nxt = ss_i;
-      buf_nxt = Buf_i;
+    if (Ctrl.strobe) begin
+      ss_nxt = Ctrl.ss;
+      buf_nxt = Ctrl.toXmit;
     end else if (clkcnt_r == CLKDIV) begin
       buf_nxt = {buf_r[6:0],1'b0};
     end
@@ -72,7 +71,7 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
   always_comb begin
     bitcnt_nxt = bitcnt_r;
     // hold at 0 until strobe, then count can proceed at 1
-    if (bitcnt_r == 0 && Strobe_i == 1'b1) begin
+    if (bitcnt_r == 0 && Ctrl.strobe == 1'b1) begin
       bitcnt_nxt = 1;
     // once per bit period, increment bit count, halt at 9
     end else if (clkcnt_r == CLKDIV - 1) begin
@@ -87,13 +86,13 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
   // clkcnt continuously loops from 1 to CLKDIV after strobe
   always_comb begin
     // hold at 0 until Strobe
-    if ((clkcnt_r == 8'd0) && (~Strobe_i) || bitcnt_r == 9) begin
+    if ((clkcnt_r == 8'd0) && (~Ctrl.strobe) || bitcnt_r == 9) begin
       clkcnt_nxt = 0;
     // start at count of 1 upon Strobe
-    end else if ((clkcnt_r == 8'd0) && Strobe_i) begin
+    end else if ((clkcnt_r == 8'd0) && Ctrl.strobe) begin
       clkcnt_nxt = 1;
     // wrape-around to 1 at max clkcnt, or start at 1 on Strobe
-    end else if ((clkcnt_r == CLKDIV) || Strobe_i) begin
+    end else if ((clkcnt_r == CLKDIV) || Ctrl.strobe) begin
       clkcnt_nxt = 1;
     end else begin
       clkcnt_nxt = clkcnt_r + 1;
@@ -104,15 +103,14 @@ module master #(CLKDIV=8'd4)(input [7:0] Buf_i, input [1:0] ss_i, input Strobe_i
 
   always_ff @(posedge Clk_i, negedge Rst_ni) begin
     if (Rst_ni == 1'b0) begin
-      Ready_o <= 1'b0;
-      Rcvd_o <= 8'd0;
+      Ctrl.Ready <= 1'b0;
+      Ctrl.Rcvd <= 8'd0;
       end
     else begin
-      if (clkcnt_r == clkdiv2) Rcvd_o <= {Rcvd_o[6:0],Spim.miso};
-      if (bitcnt_r == 8'd8) Ready_o <= 1'b1;
-      else if (clkcnt_r == clkdiv2) Ready_o <= 1'b0;
+      if (clkcnt_r == clkdiv2) Ctrl.Rcvd <= {Ctrl.Rcvd[6:0],Spim.miso};
+      if (bitcnt_r == 8'd8) Ctrl.Ready <= 1'b1;
+      else if (clkcnt_r == clkdiv2) Ctrl.Ready <= 1'b0;
       end
     end
-
 
 endmodule

@@ -19,7 +19,7 @@ TOP_LEVEL_FILE	:= master.sv
 MAPPED_ARCH := $(word 2,$(shell grep -i -m 1 -s '^[[:space:]]*architecture' source/$(TOP_LEVEL_FILE)))
 
 # Specify the filepath of the test bench you want to use (ie. source/tb_top_level.vhd)
-TEST_BENCH	:= tb_master.sv
+TEST_BENCH	:= tb_spi_system.sv
 
 # Get the test_bench entity name
 TB_ENTITY		:= $(notdir $(basename $(TEST_BENCH)))
