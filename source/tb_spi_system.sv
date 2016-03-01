@@ -53,6 +53,9 @@ module tb_spi_system#(parameter TCLK=20);
   always @(posedge tb_ctrls[0].strobe) begin
     if (!tb_ctrls[0].XmitFull & !slaveFull[0]) begin // ignore new xmit value if slave already full
       checkSXmit[0] = tb_ctrls[0].toXmit; // to be compared when master receives value from slave 0
+      if (tb_ctrls[0].busy) begin
+        @(negedge tb_ctrls[0].busy);
+        end
       slaveFull[0] = 1;
       end
     end
@@ -60,6 +63,9 @@ module tb_spi_system#(parameter TCLK=20);
   always @(posedge tb_ctrls[1].strobe) begin
     if (!tb_ctrls[1].XmitFull & !slaveFull[1]) begin // ignore new xmit value if slave already full
       checkSXmit[1] = tb_ctrls[1].toXmit; // to be compared when master receives value from slave 1
+      if (tb_ctrls[1].busy) begin
+        @(negedge tb_ctrls[1].busy);
+        end
       slaveFull[1] = 1;
       end
     end 
@@ -95,8 +101,9 @@ module tb_spi_system#(parameter TCLK=20);
     master_init();
 
     for (testCount = 0; testCount < 100; testCount++) begin
+      @(posedge tbClk)
       mrandToXmit = $urandom();
-      randSS = $dist_uniform(randSS,0,1);
+      randSS = $dist_uniform($urandom(),0,1);
       master_xmit(mrandToXmit,randSS,50);
       end
     end
@@ -135,8 +142,9 @@ module tb_spi_system#(parameter TCLK=20);
     tb_ctrls[0].strobe = 1'b0;
     tb_ctrls[1].strobe = 1'b0;
     for (testCount = 0; testCount < 100; testCount++) begin
+      @(posedge tbClk)
       srandToXmit = $urandom();
-      randSSxmit = $dist_uniform(randSSxmit,0,1);
+      randSSxmit = $dist_uniform($urandom(),0,1);
       slave_xmit(srandToXmit,randSSxmit,33);
       end
     end

@@ -96,6 +96,20 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
       end
     end
 
+  always_ff @(posedge Clk_i, negedge Rst_ni) begin
+    if (Rst_ni == 1'b0) begin
+      Ctrl.busy = 1'b0;
+      end
+    else begin
+      if (Ctrl.strobe) begin
+        Ctrl.busy = 1'b1;
+        end
+      else if (bitcnt_r == 9) begin
+        Ctrl.busy = 1'b0; 
+        end
+      end
+    end
+
   // clkcnt continuously loops from 1 to CLKDIV after strobe
   always_comb begin
     // hold at 0 until Strobe

@@ -15,7 +15,8 @@ interface SPIctrl;
   reg Ready;  // slave or master uses to indicate that there is data ready to use
   reg XmitFull; // = 1 if input buffer already full, not ready to receive new data
   logic [1:0] ss;  // too master how to set slave select bits for next transmission
-  modport Master (input toXmit, strobe, ss, output Rcvd, Ready, XmitFull);
-  modport Slave  (input toXmit, strobe, output Rcvd, Ready, XmitFull);
+  logic busy; // 1 if master or slave already busy transmitting current byte
+  modport Master (input toXmit, strobe, ss, output Rcvd, Ready, XmitFull, busy);
+  modport Slave  (input toXmit, strobe, output Rcvd, Ready, XmitFull, busy);
   modport System (output toXmit, strobe, input Rcvd, Ready, XmitFull);
 endinterface

@@ -87,6 +87,19 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
 
   // Transmitting
 
+  always_ff @(posedge Clk_i, negedge Rst_ni) begin
+    if (Rst_ni == 1'b0) begin
+      Ctrl.busy <= 1'b0;
+      end
+    else begin
+      if (sh_ena) begin
+        Ctrl.busy <= 1'b1;
+        end
+      else if (done) begin
+        Ctrl.busy <= 1'b0;
+        end
+      end
+  end
 
   always_ff @(posedge Clk_i, negedge Rst_ni) begin
     if (Rst_ni == 1'b0) begin
