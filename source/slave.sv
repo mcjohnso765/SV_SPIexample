@@ -127,6 +127,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
       IS_FULL:
         if (inBuf_clear) inBuf_st_nxt = IS_EMPTY;
     endcase
+    Ctrl.XmitFull = (inBuf_st == IS_FULL);
   end
 
   //sck fall edge
@@ -140,7 +141,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
       STROBE_WAIT:
         if (inBuf_st == IS_FULL) xmit_ctrl_st_nxt = LOAD_WAIT;
       LOAD_WAIT:
-        if ((bitcnt_r == 4'd8) || ss_rise) xmit_ctrl_st_nxt = LOAD;
+        if ((bitcnt_r == 4'd8) || (Spis.ss[ID]==1'b0)) xmit_ctrl_st_nxt = LOAD;
       LOAD:
         xmit_ctrl_st_nxt = XMIT;
       XMIT:
@@ -153,13 +154,15 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
     xmit_shift = 1'b0;
     xmit_load = 1'b0;
     inBuf_clear = 1'b0;
+    
     case (xmit_ctrl_st)
       LOAD: begin
         xmit_load = 1'b1;
-        inBuf_clear = 1'b1;
         end
-      XMIT:
+      XMIT: begin
         xmit_shift = 1'b1;
+        if ((xmit_ctrl_st == XMIT) & done) inBuf_clear = 1'b1;
+        end
     endcase
   end
 

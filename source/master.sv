@@ -11,7 +11,8 @@
 
 module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_i, Rst_ni);
 
-  logic [7:0] buf_r,buf_nxt;
+  logic [7:0] buf_r,buf_nxt, rcv_buf_r;
+  logic inFull_r, inFull_nxt; // flag to indicate whether input buffer is full
   logic [3:0] bitcnt_r,bitcnt_nxt;
   logic [7:0] clkcnt_r,clkcnt_nxt;
   logic [1:0] ss_r,ss_nxt;
@@ -29,6 +30,7 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
       sck_r <= 1'b0;
       buf_r <=  8'd0;
       ss_r <= 2'd0;
+      inFull_r <= 1'b0;
       end
     else begin
       clkcnt_r <= clkcnt_nxt;
@@ -36,6 +38,7 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
       sck_r <= sck_nxt;
       buf_r <= buf_nxt;
       ss_r <= ss_nxt;
+      inFull_r <= inFull_nxt;
     end
   end
 
@@ -49,6 +52,16 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
     end else if (clkcnt_r == CLKDIV) begin
       buf_nxt = {buf_r[6:0],1'b0};
     end
+  end
+
+  // update input full flag
+  always_comb begin
+    Ctrl.XmitFull = inFull_r;
+    inFull_nxt = inFull_r;
+    if (Ctrl.strobe) 
+      inFull_nxt = 1'b1;
+    else if (bitcnt_r == 4'd9) 
+      inFull_nxt = 1'b0;
   end
 
   // pulse sck while output bit is stable
@@ -104,12 +117,17 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
   always_ff @(posedge Clk_i, negedge Rst_ni) begin
     if (Rst_ni == 1'b0) begin
       Ctrl.Ready <= 1'b0;
+      rcv_buf_r <= 8'd0;
       Ctrl.Rcvd <= 8'd0;
       end
     else begin
-      if (clkcnt_r == clkdiv2) Ctrl.Rcvd <= {Ctrl.Rcvd[6:0],Spim.miso};
-      if (bitcnt_r == 8'd8) Ctrl.Ready <= 1'b1;
-      else if (clkcnt_r == clkdiv2) Ctrl.Ready <= 1'b0;
+      if (clkcnt_r == clkdiv2) rcv_buf_r <= {rcv_buf_r[6:0],Spim.miso};
+      if (bitcnt_r == 8'd9) begin
+        Ctrl.Rcvd <= rcv_buf_r;
+        Ctrl.Ready <= 1'b1;
+        end
+      //else if (clkcnt_r == clkdiv2) Ctrl.Ready <= 1'b0;
+      else Ctrl.Ready <= 1'b0;
       end
     end
 
