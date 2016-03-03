@@ -128,7 +128,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
   // buff NS
   always_comb begin
     preXmitBuf_nxt = preXmitBuf;
-    if (strobe_sync) preXmitBuf_nxt = Ctrl.toXmit; 
+    if (strobe_sync & (preXmitBuf_st == IS_EMPTY)) preXmitBuf_nxt = Ctrl.toXmit; 
   end
 
   // Buff ctrl NS
@@ -140,7 +140,20 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
       IS_FULL:
         if (preXmitBuf_clear) preXmitBuf_st_nxt = IS_EMPTY;
     endcase
-    Ctrl.XmitFull = (preXmitBuf_st == IS_FULL);
+  end
+
+  always_ff @(posedge Clk_i, negedge Rst_ni) begin
+    if (!Rst_ni) begin
+      Ctrl.XmitFull <= 1'b0;
+      end
+    else begin
+      if (xmit_load) begin
+        Ctrl.XmitFull <= 1'b1;
+        end
+      else if (done) begin
+        Ctrl.XmitFull <= 1'b0;
+        end
+      end
   end
 
   //sck fall edge
