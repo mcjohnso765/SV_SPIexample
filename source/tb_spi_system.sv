@@ -53,16 +53,22 @@ module tb_spi_system#(parameter TCLK=20);
   always @(posedge tb_ctrls[0].strobe) begin
     if (!tb_ctrls[0].XmitFull & !slaveFull[0]) begin // ignore new xmit value if slave already full
       checkSXmit[0] = tb_ctrls[0].toXmit; // to be compared when master receives value from slave 0
+      @(posedge tb_ctrls[0].XmitFull); // make sure slave has time to load xmit data before checking busy
+      @(posedge tbClk);
+      #(3*TCLK);
       if (tb_ctrls[0].busy) begin
-        @(negedge tb_ctrls[0].busy);
+        @(negedge tb_ctrls[0].busy); 
         end
-      slaveFull[0] = 1;
+      slaveFull[0] = 1;  //mark slave is being ready to transmit a new value if selected
       end
     end
 
   always @(posedge tb_ctrls[1].strobe) begin
     if (!tb_ctrls[1].XmitFull & !slaveFull[1]) begin // ignore new xmit value if slave already full
       checkSXmit[1] = tb_ctrls[1].toXmit; // to be compared when master receives value from slave 1
+      @(posedge tb_ctrls[1].XmitFull);
+      @(posedge tbClk);
+      #(3*TCLK);
       if (tb_ctrls[1].busy) begin
         @(negedge tb_ctrls[1].busy);
         end
@@ -73,13 +79,13 @@ module tb_spi_system#(parameter TCLK=20);
   always @(posedge tb_ctrlm.Ready) begin
     @(posedge tbClk);
     if (tb_ctrlm.ss[0] && slaveFull[0]) begin
-      assert (tb_ctrlm.Rcvd == checkSXmit[0]) $display("correct value received by master");
-        else $error("incorrect value received by master");
+      assert (tb_ctrlm.Rcvd == checkSXmit[0]) $display("t=%t correct value %b received by master from slave 0",$time,checkSXmit[0]);
+        else $display("t=%t, incorrect value %b received by master, expected %b",$time,tb_ctrlm.Rcvd,checkSXmit[0]);
       slaveFull[0] = 0;
       end
     else if (tb_ctrlm.ss[1] && slaveFull[1]) begin
-      assert (tb_ctrlm.Rcvd == checkSXmit[1]) $display("correct value received by master");
-        else $error("incorrect value received by master");
+      assert (tb_ctrlm.Rcvd == checkSXmit[1]) $display("t=%t correct value %b received by master from slave 1",$time,checkSXmit[1]);
+        else $display("t=%t, incorrect value %b received by master, expected %b",$time,tb_ctrlm.Rcvd,checkSXmit[1]);
       slaveFull[1] = 0;
       end
     end

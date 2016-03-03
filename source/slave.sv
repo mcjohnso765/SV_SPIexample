@@ -16,14 +16,14 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
   logic mosi_sync1, mosi_sync2;
 
   logic strobe2, strobe_sync; // indicate new data available on Ctrl.toXmit;
-  typedef enum {IS_EMPTY,IS_FULL} inBuf_st_t;
-  inBuf_st_t inBuf_st, inBuf_st_nxt;
-  logic inBuf_clear;
+  typedef enum {IS_EMPTY,IS_FULL} preXmitBuf_st_t;
+  preXmitBuf_st_t preXmitBuf_st, preXmitBuf_st_nxt;
+  logic preXmitBuf_clear;
   logic xsh_ena; // shift enable for transmit;
   typedef enum {STROBE_WAIT, LOAD_WAIT, LOAD, XMIT} xmit_ctrl_st_t;
   xmit_ctrl_st_t xmit_ctrl_st, xmit_ctrl_st_nxt;
   logic xmit_shift, xmit_load;
-  logic [7:0] xmit_r, xmit_nxt, inBuf,inBuf_nxt;
+  logic [7:0] xmit_r, xmit_nxt, preXmitBuf,preXmitBuf_nxt;
   logic ss1, ss2, ss_rise; // = 1 for one clock cycle after this slave goes from not selected to selected
 
 
@@ -105,8 +105,8 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
     if (Rst_ni == 1'b0) begin
       strobe2 <= 1'b0;
       strobe_sync <= 1'b0;
-      inBuf <= 8'b0;
-      inBuf_st <= IS_EMPTY;
+      preXmitBuf <= 8'b0;
+      preXmitBuf_st <= IS_EMPTY;
       xmit_ctrl_st <= STROBE_WAIT;
       xmit_r <= 8'b0;
       ss1 <= 1'b0;
@@ -114,8 +114,8 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
     end else begin
       strobe2 <= Ctrl.strobe;
       strobe_sync <= strobe2;
-      inBuf <= inBuf_nxt;
-      inBuf_st <= inBuf_st_nxt;
+      preXmitBuf <= preXmitBuf_nxt;
+      preXmitBuf_st <= preXmitBuf_st_nxt;
       xmit_ctrl_st <= xmit_ctrl_st_nxt;
       xmit_r <= xmit_nxt;
       ss1 <= Spis.ss[ID];
@@ -127,20 +127,20 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
 
   // buff NS
   always_comb begin
-    inBuf_nxt = inBuf;
-    if (strobe_sync) inBuf_nxt = Ctrl.toXmit; 
+    preXmitBuf_nxt = preXmitBuf;
+    if (strobe_sync) preXmitBuf_nxt = Ctrl.toXmit; 
   end
 
   // Buff ctrl NS
   always_comb begin
-    inBuf_st_nxt = inBuf_st;
-    case (inBuf_st)
+    preXmitBuf_st_nxt = preXmitBuf_st;
+    case (preXmitBuf_st)
       IS_EMPTY:
-        if (strobe_sync) inBuf_st_nxt = IS_FULL;
+        if (strobe_sync) preXmitBuf_st_nxt = IS_FULL;
       IS_FULL:
-        if (inBuf_clear) inBuf_st_nxt = IS_EMPTY;
+        if (preXmitBuf_clear) preXmitBuf_st_nxt = IS_EMPTY;
     endcase
-    Ctrl.XmitFull = (inBuf_st == IS_FULL);
+    Ctrl.XmitFull = (preXmitBuf_st == IS_FULL);
   end
 
   //sck fall edge
@@ -152,7 +152,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
     xmit_ctrl_st_nxt = xmit_ctrl_st;
     case (xmit_ctrl_st)
       STROBE_WAIT:
-        if (inBuf_st == IS_FULL) xmit_ctrl_st_nxt = LOAD_WAIT;
+        if (preXmitBuf_st == IS_FULL) xmit_ctrl_st_nxt = LOAD_WAIT;
       LOAD_WAIT:
         if ((bitcnt_r == 4'd8) || (Spis.ss[ID]==1'b0)) xmit_ctrl_st_nxt = LOAD;
       LOAD:
@@ -166,7 +166,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
   always_comb begin
     xmit_shift = 1'b0;
     xmit_load = 1'b0;
-    inBuf_clear = 1'b0;
+    preXmitBuf_clear = 1'b0;
     
     case (xmit_ctrl_st)
       LOAD: begin
@@ -174,7 +174,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
         end
       XMIT: begin
         xmit_shift = 1'b1;
-        if ((xmit_ctrl_st == XMIT) & done) inBuf_clear = 1'b1;
+        if ((xmit_ctrl_st == XMIT) & done) preXmitBuf_clear = 1'b1;
         end
     endcase
   end
@@ -182,7 +182,7 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
   always_comb begin
     xmit_nxt = xmit_r;
     if (xmit_load) begin
-      xmit_nxt = inBuf;
+      xmit_nxt = preXmitBuf;
       end
     else if (xsh_ena) begin
       xmit_nxt = xmit_r << 1;
