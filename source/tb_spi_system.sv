@@ -1,6 +1,7 @@
 import ovm_pkg::*;
 `include "ovm_macros.svh"
 `include "source/spi_interface.svh"
+`define mapped
 
 `timescale 1ns/10ps
 
@@ -24,9 +25,48 @@ module tb_spi_system#(parameter TCLK=20);
 
   // Top level modules
 
+`ifdef mapped
+  master MASTER(tb_ctrlm.toXmit, 
+    tb_ctrlm.strobe, 
+    tb_ctrlm.ss, 
+    tb_ctrlm.Rcvd, 
+    tb_ctrlm.Ready, 
+    tb_ctrlm.XmitFull, 
+    tb_ctrlm.busy, 
+    spi.miso, 
+    spi.mosi, 
+    spi.sck, 
+    spi.ss, 
+    tbClkm, Rst_n);
+  slave_ID0 SLAVE0 (
+    spi.mosi,
+    spi.sck,
+    spi.ss,
+    spi.miso,
+    tb_ctrls[0].toXmit,
+    tb_ctrls[0].strobe,
+    tb_ctrls[0].Rcvd,
+    tb_ctrls[0].Ready,
+    tb_ctrls[0].XmitFull,
+    tb_ctrls[0].busy,
+    tbClks, Rst_n);
+  slave_ID1 SLAVE1 (
+    spi.mosi,
+    spi.sck,
+    spi.ss,
+    spi.miso,
+    tb_ctrls[1].toXmit,
+    tb_ctrls[1].strobe,
+    tb_ctrls[1].Rcvd,
+    tb_ctrls[1].Ready,
+    tb_ctrls[1].XmitFull,
+    tb_ctrls[1].busy,
+    tbClks, Rst_n);
+  `else
   master MASTER(.Ctrl(tb_ctrlm.Master), .Spim(spi.Master),.Clk_i(tbClkm), .Rst_ni(Rst_n));
   slave #(.ID(0)) SLAVE0 (.Ctrl(tb_ctrls[0].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
   slave #(.ID(1)) SLAVE1 (.Ctrl(tb_ctrls[1].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
+  `endif
 
   // tb assertion logic to check that slaves receive correct value transmitted by master
 

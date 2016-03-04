@@ -1,0 +1,83 @@
+/package/eda/synopsys/syn-I-2013.12-SP5-9/bin/dc_shell-t <<!
+#
+# Synthesize master
+# Step 1:  Read in the source file
+analyze -format sverilog -lib WORK {spi_interface.svh master.sv}
+elaborate master -lib WORK -update
+uniquify                                                 
+# Step 2: Set design constraints                        
+# Uncomment below to set timing, area, power, etc. constraints
+# set_max_delay <delay> -from "<input>" -to "<output>"       
+# set_max_area <area>                                       
+# set_max_total_power <power> mW                           
+create_clock "Clk_i" -name "Clk_i" -period  10             
+                                                         
+# Step 3: Compile the design                            
+compile -map_effort medium                             
+                                                      
+# Step 4: Output reports                             
+report_timing -path full -delay max -max_paths 1 -nworst 1 > reports/master.rep
+report_area >> reports/master.rep                                             
+report_power -hier >> reports/master.rep                                     
+                                                                                   
+# Step 5: Output final VHDL and Verilog files                                     
+write -format verilog -hierarchy -output "mapped/master.v"               
+echo "\\nChecking Design for master\\n"                                                  
+check_design                                                                 
+
+# synthesize slave
+
+#slave 1
+analyze -format sverilog -lib WORK {spi_interface.svh slave.sv}
+elaborate slave -lib WORK -update -param "ID => 1"
+rename_design slave slave1
+uniquify                                                 
+# Step 2: Set design constraints                        
+# Uncomment below to set timing, area, power, etc. constraints
+# set_max_delay <delay> -from "<input>" -to "<output>"       
+# set_max_area <area>                                       
+# set_max_total_power <power> mW                           
+create_clock "Clk_i" -name "Clk_i" -period  10             
+                                                         
+# Step 3: Compile the design                            
+compile -map_effort medium                             
+                                                      
+# Step 4: Output reports                             
+report_timing -path full -delay max -max_paths 1 -nworst 1 > reports/slave1.rep
+report_area >> reports/slave.rep                                             
+report_power -hier >> reports/slave.rep                                     
+                                                                                   
+# Step 5: Output final VHDL and Verilog files                                     
+write -format verilog -hierarchy -output "mapped/slave1.v"               
+echo "\\nChecking Design for slave1\\n"                                                  
+check_design  
+
+
+
+#slave 0
+analyze -format sverilog -lib WORK {spi_interface.svh slave.sv}
+elaborate slave -lib WORK -update -param "ID => 0"
+rename_design slave slave0
+uniquify                                                 
+# Step 2: Set design constraints                        
+# Uncomment below to set timing, area, power, etc. constraints
+# set_max_delay <delay> -from "<input>" -to "<output>"       
+# set_max_area <area>                                       
+# set_max_total_power <power> mW                           
+create_clock "Clk_i" -name "Clk_i" -period  10             
+                                                         
+# Step 3: Compile the design                            
+compile -map_effort medium                             
+                                                      
+# Step 4: Output reports                             
+report_timing -path full -delay max -max_paths 1 -nworst 1 > reports/slave1.rep
+report_area >> reports/slave.rep                                             
+report_power -hier >> reports/slave.rep                                     
+                                                                                   
+# Step 5: Output final VHDL and Verilog files                                     
+write -format verilog -hierarchy -output "mapped/slave0.v"               
+echo "\\nChecking Design for slave0\\n"                                                  
+check_design  
+
+exit
+!

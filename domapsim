@@ -1,0 +1,9 @@
+rm -rf ./work
+vlib ./work
+vlog +acc source/tb_spi_system.sv
+vlog +acc mapped/master.v
+vlog +acc mapped/slave1.v
+vlog +acc mapped/slave0.v
+vsim -Lf /home/ecegrid/a/ece337/Course_Prod/Cell_Libs/AMI_05/vhdl_work +no_glitch_msg -coverage -voptargs="+acc" work.tb_spi_system
+
+
