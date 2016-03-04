@@ -1,16 +1,17 @@
 onerror {resume}
 quietly WaveActivateNextPane {} 0
 add wave -noupdate -divider tb
-add wave -noupdate /tb_spi_system/tbClk
 add wave -noupdate /tb_spi_system/Rst_n
+add wave -noupdate /tb_spi_system/tbClkm
+add wave -noupdate /tb_spi_system/tbClks
 add wave -noupdate /tb_spi_system/randSSxmit
 add wave -noupdate -expand /tb_spi_system/slaveFull
 add wave -noupdate -divider {Master ctrl}
-add wave -noupdate /tb_spi_system/tb_ctrlm/toXmit
-add wave -noupdate /tb_spi_system/tb_ctrlm/Rcvd
-add wave -noupdate -color Cyan /tb_spi_system/tb_ctrlm/strobe
-add wave -noupdate -color Yellow /tb_spi_system/tb_ctrlm/Ready
-add wave -noupdate -expand /tb_spi_system/tb_ctrlm/ss
+add wave -noupdate -group {Master Ctrl} /tb_spi_system/tb_ctrlm/toXmit
+add wave -noupdate -group {Master Ctrl} /tb_spi_system/tb_ctrlm/Rcvd
+add wave -noupdate -group {Master Ctrl} -color Cyan /tb_spi_system/tb_ctrlm/strobe
+add wave -noupdate -group {Master Ctrl} -color Yellow /tb_spi_system/tb_ctrlm/Ready
+add wave -noupdate -group {Master Ctrl} -expand /tb_spi_system/tb_ctrlm/ss
 add wave -noupdate -divider {Slave ctrl 0}
 add wave -noupdate -expand -group {Slave Ctrl 0} {/tb_spi_system/tb_ctrls[0]/toXmit}
 add wave -noupdate -expand -group {Slave Ctrl 0} {/tb_spi_system/tb_ctrls[0]/XmitFull}
@@ -56,7 +57,7 @@ add wave -noupdate -expand -group {Slave 1} /tb_spi_system/SLAVE1/xmit_nxt
 add wave -noupdate -expand -group {Slave 1} /tb_spi_system/SLAVE1/preXmitBuf
 add wave -noupdate -expand -group {Slave 1} /tb_spi_system/SLAVE1/preXmitBuf_nxt
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {6376186 ps} 0}
+WaveRestoreCursors {{Cursor 1} {4617200 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -72,4 +73,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {2595469 ps} {9596962 ps}
+WaveRestoreZoom {4291262 ps} {5083968 ps}

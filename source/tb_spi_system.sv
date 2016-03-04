@@ -6,7 +6,7 @@ import ovm_pkg::*;
 
 module tb_spi_system#(parameter TCLK=20);
 
-  logic tbClk,Rst_n;
+  logic tbClkm,tbClks,Rst_n; // master clock, slave clock, reset
 
   SPIbus spi();  // SPI bus between master and two slaves
   SPIctrl tb_ctrlm();  // control interfaces for SPI modules
@@ -24,9 +24,9 @@ module tb_spi_system#(parameter TCLK=20);
 
   // Top level modules
 
-  master MASTER(.Ctrl(tb_ctrlm.Master), .Spim(spi.Master),.Clk_i(tbClk), .Rst_ni(Rst_n));
-  slave #(.ID(0)) SLAVE0 (.Ctrl(tb_ctrls[0].Slave), .Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n));
-  slave #(.ID(1)) SLAVE1 (.Ctrl(tb_ctrls[1].Slave), .Spis(spi.Slave),.Clk_i(tbClk),.Rst_ni(Rst_n));
+  master MASTER(.Ctrl(tb_ctrlm.Master), .Spim(spi.Master),.Clk_i(tbClkm), .Rst_ni(Rst_n));
+  slave #(.ID(0)) SLAVE0 (.Ctrl(tb_ctrls[0].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
+  slave #(.ID(1)) SLAVE1 (.Ctrl(tb_ctrls[1].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
 
   // tb assertion logic to check that slaves receive correct value transmitted by master
 
@@ -43,7 +43,7 @@ module tb_spi_system#(parameter TCLK=20);
   assign checkReady = (checkSS[0] & tb_ctrls[0].Ready) | (checkSS[1] & tb_ctrls[1].Ready);
 
   always @(posedge checkReady) begin
-    @(posedge tbClk);
+    @(posedge tbClks);
     assert (checkRcvd == checkXmit) $display("%t correct value %b received by slave",$time,checkRcvd);
       else $display("%t incorect value %b received by slave, expected %b",$time,checkRcvd,checkXmit);
     end
@@ -54,7 +54,7 @@ module tb_spi_system#(parameter TCLK=20);
     if (!tb_ctrls[0].XmitFull & !slaveFull[0]) begin // ignore new xmit value if slave already full
       checkSXmit[0] = tb_ctrls[0].toXmit; // to be compared when master receives value from slave 0
       @(posedge tb_ctrls[0].XmitFull); // make sure slave has time to load xmit data before checking busy
-      @(posedge tbClk);
+      @(posedge tbClks);
       #(20*TCLK);
       if (tb_ctrls[0].busy) begin
         @(negedge tb_ctrls[0].busy); 
@@ -67,7 +67,7 @@ module tb_spi_system#(parameter TCLK=20);
     if (!tb_ctrls[1].XmitFull & !slaveFull[1]) begin // ignore new xmit value if slave already full
       checkSXmit[1] = tb_ctrls[1].toXmit; // to be compared when master receives value from slave 1
       @(posedge tb_ctrls[1].XmitFull);
-      @(posedge tbClk);
+      @(posedge tbClkm);
       #(20*TCLK);
       if (tb_ctrls[1].busy) begin
         @(negedge tb_ctrls[1].busy);
@@ -77,7 +77,7 @@ module tb_spi_system#(parameter TCLK=20);
     end 
 
   always @(posedge tb_ctrlm.Ready) begin
-    @(posedge tbClk);
+    @(posedge tbClkm);
     if (tb_ctrlm.ss[0] && slaveFull[0]) begin
       assert (tb_ctrlm.Rcvd == checkSXmit[0]) $display("%t correct value %b received by master from slave 0",$time,checkSXmit[0]);
         else $display("%t, incorrect value %b received by master, expected %b",$time,tb_ctrlm.Rcvd,checkSXmit[0]);
@@ -95,9 +95,18 @@ module tb_spi_system#(parameter TCLK=20);
   initial begin // Clock generation
     forever
       begin
-      tbClk = 1'b0;
-      #(TCLK/2) tbClk = 1'b1;
+      tbClkm = 1'b0;
+      #(TCLK/2) tbClkm = 1'b1;
       #(TCLK/2);
+      end
+    end
+
+  initial begin // Clock generation
+    forever
+      begin
+      tbClks = 1'b0;
+      #(TCLK/2.1) tbClks = 1'b1;
+      #(TCLK/2.1);
       end
     end
 
@@ -107,7 +116,7 @@ module tb_spi_system#(parameter TCLK=20);
     master_init();
 
     for (testCount = 0; testCount < 100; testCount++) begin
-      @(posedge tbClk)
+      @(posedge tbClkm)
       mrandToXmit = $urandom();
       randSS = $dist_uniform($urandom(),0,1);
       master_xmit(mrandToXmit,randSS,50);
@@ -129,10 +138,10 @@ module tb_spi_system#(parameter TCLK=20);
     tb_ctrlm.toXmit = datin;
     tb_ctrlm.ss = 2'b00;
     tb_ctrlm.ss[slave_index] = 2'b01;
-    @(posedge tbClk);
+    @(posedge tbClkm);
     #(TCLK/2);
     tb_ctrlm.strobe = 1'b1;
-    @(posedge tbClk);
+    @(posedge tbClkm);
     #(TCLK/2);
     tb_ctrlm.strobe = 1'b0;
     #(TCLK*delay);
@@ -148,7 +157,7 @@ module tb_spi_system#(parameter TCLK=20);
     tb_ctrls[0].strobe = 1'b0;
     tb_ctrls[1].strobe = 1'b0;
     for (testCount = 0; testCount < 100; testCount++) begin
-      @(posedge tbClk)
+      @(posedge tbClkm)
       srandToXmit = $urandom();
       randSSxmit = $dist_uniform($urandom(),0,1);
       slave_xmit(srandToXmit,randSSxmit,33);
@@ -161,10 +170,10 @@ module tb_spi_system#(parameter TCLK=20);
     if (slave_index == 0) begin
       tb_ctrls[0].toXmit = datin;
       tb_ctrls[0].strobe = 2'b0;
-      @(posedge tbClk);
+      @(posedge tbClkm);
       #(TCLK/2);
       tb_ctrls[0].strobe = 1'b1;
-      @(posedge tbClk);
+      @(posedge tbClkm);
       #(TCLK/2);
       tb_ctrls[0].strobe = 2'b0;
       #(TCLK*delay);
@@ -172,10 +181,10 @@ module tb_spi_system#(parameter TCLK=20);
     else begin
       tb_ctrls[1].toXmit = datin;
       tb_ctrls[1].strobe = 2'b0;
-      @(posedge tbClk);
+      @(posedge tbClkm);
       #(TCLK/2);
       tb_ctrls[1].strobe = 1'b1;
-      @(posedge tbClk);
+      @(posedge tbClkm);
       #(TCLK/2);
       tb_ctrls[1].strobe = 2'b0;
       #(TCLK*delay);

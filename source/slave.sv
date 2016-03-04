@@ -1,4 +1,4 @@
-`include "source/spi_interface.svh"
+//`include "source/spi_interface.svh"
 
 // components:
 //   sck rising edge detector, output as sh_ena only when slave select asserted

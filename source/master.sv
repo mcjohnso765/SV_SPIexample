@@ -1,4 +1,4 @@
-`include "source/spi_interface.svh" 
+//`include "source/spi_interface.svh" 
 // master
 //   Ctrl = SPI module view of control interface. see spi_interface.svh
 //   Spim = master view of SPIbus interface
