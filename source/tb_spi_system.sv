@@ -1,7 +1,7 @@
 import ovm_pkg::*;
 `include "ovm_macros.svh"
 `include "source/spi_interface.svh"
-`define mapped
+//`define mapped
 
 `timescale 1ns/10ps
 
