@@ -1,31 +1,36 @@
 import ovm_pkg::*;
 `include "ovm_macros.svh"
 `include "source/spi_interface.svh"
+// uncomment following define directive to test mapped versions of master and slaves
+// comment it to test source version
 //`define mapped
 
 `timescale 1ns/10ps
 
 module tb_spi_system#(parameter TCLK=20);
 
-  logic tbClkm,tbClks,Rst_n; // master clock, slave clock, reset
+  // interconnections between master, slaves, and tb
+  logic tbClkm,tbClks,Rst_n;  // master clock, slave clock, reset
+  SPIbus spi();               // SPI bus between master and two slaves
+  SPIctrl tb_ctrlm();         // control interfaces for SPI modules
+  SPIctrl tb_ctrls[1:0]();    // array of slave control interfaces
 
-  SPIbus spi();  // SPI bus between master and two slaves
-  SPIctrl tb_ctrlm();  // control interfaces for SPI modules
-  SPIctrl tb_ctrls[1:0](); // array of slave control interfaces
-
-  // assertion variables
-  integer iRandom, testCount;
-  reg [7:0] checkXmit,srandToXmit,mrandToXmit; // when master is strobed, save copy of data in checkXmit
-  reg [7:0] checkRcvd, checkSXmit[1:0]; // checkSXmit contains copy of slave xmit data for each slave
-  reg [1:0] slaveFull; // 1 indicates that slave has data to transmit to master
-  reg [1:0] checkSS; // when master strobed, save slave select 
-  reg checkReady; // becomes 1 when selected slave is ready
-  integer randSS; // used to tell master which slave to select
-  integer randSSxmit; // used to select slave to receive value to be transmitted
+  // variables for test vector generation and assertion checking
+  integer testCountm, testCounts;
+  reg [7:0] checkMXmit;       // when master is strobed, save copy of data in checkMXmit
+  reg [7:0] mrandToXmit;      // test data for master to transmit
+  reg [7:0] srandToXmit;      // test data for slave transmit
+  reg [7:0] checkSXmit[1:0];  // keep copy of slave xmit data for later checking
+  reg [7:0] checkRcvds;       // keep copy of data last received by slave
+  reg [1:0] slaveFull;        // slave [1:0] has data ready to transmit to master
+  reg [1:0] checkSSm;         // save copy of slave select commanded to master
+  reg checkSReady;             // 1 when selected slave has rcvd data ready to check
+  integer randSS;             // used to tell master which slave to select
+  integer randSSxmit;         // which slave tb will give value to be transmitted
 
   // Top level modules
 
-`ifdef mapped
+`ifdef mapped  // mapped versions do not work with SV interfaces
   master MASTER(tb_ctrlm.toXmit, 
     tb_ctrlm.strobe, 
     tb_ctrlm.ss, 
@@ -62,7 +67,7 @@ module tb_spi_system#(parameter TCLK=20);
     tb_ctrls[1].XmitFull,
     tb_ctrls[1].busy,
     tbClks, Rst_n);
-  `else
+  `else  // use source version of devices
   master MASTER(.Ctrl(tb_ctrlm.Master), .Spim(spi.Master),.Clk_i(tbClkm), .Rst_ni(Rst_n));
   slave #(.ID(0)) SLAVE0 (.Ctrl(tb_ctrls[0].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
   slave #(.ID(1)) SLAVE1 (.Ctrl(tb_ctrls[1].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
@@ -70,42 +75,58 @@ module tb_spi_system#(parameter TCLK=20);
 
   // tb assertion logic to check that slaves receive correct value transmitted by master
 
-  always @(posedge tb_ctrlm.strobe) begin
-    checkXmit = tb_ctrlm.toXmit;  // save value to be checked when slave receives value
-    checkSS = tb_ctrlm.ss;
+  always @(posedge tb_ctrlm.strobe) begin  
+    // when master is strobed, save copy of value to be transmitted
+    checkMXmit = tb_ctrlm.toXmit;  
+    // and the ID of the slave to receive that value
+    checkSSm = tb_ctrlm.ss;         
     end
 
-  always @* begin // check correct received byte at whichever slave was selected
-    if (checkSS[0]) checkRcvd = tb_ctrls[0].Rcvd;
-    else if (checkSS[1]) checkRcvd = tb_ctrls[1].Rcvd;
+  always @* begin  // whenever received value at slave changes, save a copy for checking
+    if (checkSSm[0]) checkRcvds = tb_ctrls[0].Rcvd;
+    else if (checkSSm[1]) checkRcvds = tb_ctrls[1].Rcvd;
     end
-
-  assign checkReady = (checkSS[0] & tb_ctrls[0].Ready) | (checkSS[1] & tb_ctrls[1].Ready);
-
-  always @(posedge checkReady) begin
+  
+  // when selected slave says it has newly received data ready to be read, compare
+  // transmitted and received values
+  assign checkSReady = (checkSSm[0] & tb_ctrls[0].Ready) | (checkSSm[1] & tb_ctrls[1].Ready);
+  always @(posedge checkSReady) begin
     @(posedge tbClks);
-    assert (checkRcvd == checkXmit) $display("%t correct value %b received by slave",$time,checkRcvd);
-      else $display("%t incorect value %b received by slave, expected %b",$time,checkRcvd,checkXmit);
+    assert (checkRcvds == checkMXmit) $display("%t correct value %b received by slave",
+        $time,checkRcvds);
+      else $display("%t incorect value %b received by slave, expected %b",
+        $time,checkRcvds,checkMXmit);
     end
 
 
   // assertion logic for values received by master from either slave
+
+  // whenever slave 0 is strobed with new data to be transmitted
+  // save a copy of the data for checking later
   always @(posedge tb_ctrls[0].strobe) begin
-    if (!tb_ctrls[0].XmitFull & !slaveFull[0]) begin // ignore new xmit value if slave already full
-      checkSXmit[0] = tb_ctrls[0].toXmit; // to be compared when master receives value from slave 0
-      @(posedge tb_ctrls[0].XmitFull); // make sure slave has time to load xmit data before checking busy
+    // ignore new value if slave already has data to xmit
+    if (!tb_ctrls[0].XmitFull & !slaveFull[0]) begin 
+      // save copy of data for later comparison to what master receives
+      checkSXmit[0] = tb_ctrls[0].toXmit; 
+      // wait because slave might be on verge of a data transfer
+      // but doesn't know it yet
+      @(posedge tb_ctrls[0].XmitFull); 
       @(posedge tbClks);
       #(20*TCLK);
+      // if slave is busy receiving from master, don't set full flag until done
       if (tb_ctrls[0].busy) begin
         @(negedge tb_ctrls[0].busy); 
         end
-      slaveFull[0] = 1;  //mark slave is being ready to transmit a new value if selected
+      //mark slave is being ready to transmit a new value if selected
+      slaveFull[0] = 1;  
       end
     end
 
+  // whenever slave 1 is strobed with new data to be transmitted
+  // save a copy of the data for checking later
   always @(posedge tb_ctrls[1].strobe) begin
-    if (!tb_ctrls[1].XmitFull & !slaveFull[1]) begin // ignore new xmit value if slave already full
-      checkSXmit[1] = tb_ctrls[1].toXmit; // to be compared when master receives value from slave 1
+    if (!tb_ctrls[1].XmitFull & !slaveFull[1]) begin 
+      checkSXmit[1] = tb_ctrls[1].toXmit;
       @(posedge tb_ctrls[1].XmitFull);
       @(posedge tbClkm);
       #(20*TCLK);
@@ -116,23 +137,37 @@ module tb_spi_system#(parameter TCLK=20);
       end
     end 
 
+  // when master has reached end of a byte transfer on SPI bus
+  // compare received data to expected value, if anything was expected
   always @(posedge tb_ctrlm.Ready) begin
     @(posedge tbClkm);
+    // if slave 0 was selected and had data to transmit
     if (tb_ctrlm.ss[0] && slaveFull[0]) begin
-      assert (tb_ctrlm.Rcvd == checkSXmit[0]) $display("%t correct value %b received by master from slave 0",$time,checkSXmit[0]);
-        else $display("%t, incorrect value %b received by master, expected %b",$time,tb_ctrlm.Rcvd,checkSXmit[0]);
+      // compare received and transmitted data
+      assert (tb_ctrlm.Rcvd == checkSXmit[0]) 
+        $display("%t correct value %b received by master from slave 0",
+          $time,checkSXmit[0]);
+        else 
+        $display("%t, incorrect value %b received by master, expected %b",
+          $time,tb_ctrlm.Rcvd,checkSXmit[0]);
+      // mark slave as no longer having data to transmit
       slaveFull[0] = 0;
       end
+    // if slave 1 was selected and had data to transmit
     else if (tb_ctrlm.ss[1] && slaveFull[1]) begin
-      assert (tb_ctrlm.Rcvd == checkSXmit[1]) $display("%t correct value %b received by master from slave 1",$time,checkSXmit[1]);
-        else $display("%t, incorrect value %b received by master, expected %b",$time,tb_ctrlm.Rcvd,checkSXmit[1]);
+      assert (tb_ctrlm.Rcvd == checkSXmit[1]) 
+        $display("%t correct value %b received by master from slave 1",
+          $time,checkSXmit[1]);
+        else 
+        $display("%t, incorrect value %b received by master, expected %b",
+          $time,tb_ctrlm.Rcvd,checkSXmit[1]);
       slaveFull[1] = 0;
       end
     end
 
   // stimulus generation
 
-  initial begin // Clock generation
+  initial begin // master Clock generation
     forever
       begin
       tbClkm = 1'b0;
@@ -141,7 +176,9 @@ module tb_spi_system#(parameter TCLK=20);
       end
     end
 
-  initial begin // Clock generation
+  initial begin // slave Clock generation
+    // deliberately made asynchronouse relative to master clock
+    // to make sure master & slave can work asynchrounously
     forever
       begin
       tbClks = 1'b0;
@@ -150,19 +187,23 @@ module tb_spi_system#(parameter TCLK=20);
       end
     end
 
-  initial  // give SPI master something to transmit
+  // give SPI master something to transmit
+  initial  
     begin
-    mrandToXmit = $urandom(3); // set fixed seed for repeatability
+    // set fixed initial seed for repeatability
+    mrandToXmit = $urandom(3); 
     master_init();
 
-    for (testCount = 0; testCount < 100; testCount++) begin
+    for (testCountm = 0; testCountm < 100; testCountm++) begin
       @(posedge tbClkm)
       mrandToXmit = $urandom();
       randSS = $dist_uniform($urandom(),0,1);
+      // tell master to transmit new data to randomly selected slave
       master_xmit(mrandToXmit,randSS,50);
       end
     end
 
+  // reset SPI master
   task master_init;
     tb_ctrlm.ss = 2'b0;
     tb_ctrlm.strobe = 1'b0;
@@ -173,6 +214,8 @@ module tb_spi_system#(parameter TCLK=20);
     #(TCLK*0.75);
   endtask
 
+  // send command to master via control interface
+  // first provide data and slave selection, then send strobe
   task master_xmit (input [7:0] datin, input [1:0] slave_index, input integer delay);
     tb_ctrlm.strobe = 1'b0;
     tb_ctrlm.toXmit = datin;
@@ -187,16 +230,19 @@ module tb_spi_system#(parameter TCLK=20);
     #(TCLK*delay);
   endtask
 
-  initial  // Give the slave SPIs something to transmit
+  // Give the slave SPIs something to transmit
+  // process is similar to that used to give master data to transmit
+  initial  
     begin
-    srandToXmit = $urandom(4); // set fixed seed for repeatability
-                               // but want different sequence from master SPI
+    // set fixed seed for repeatability
+    // but want different sequence from master SPI
+    srandToXmit = $urandom(4); 
     slaveFull = 2'b00;
     tb_ctrls[0].toXmit = 'b0;
     tb_ctrls[1].toXmit = 'b0;
     tb_ctrls[0].strobe = 1'b0;
     tb_ctrls[1].strobe = 1'b0;
-    for (testCount = 0; testCount < 100; testCount++) begin
+    for (testCounts = 0; testCounts < 100; testCounts++) begin
       @(posedge tbClkm)
       srandToXmit = $urandom();
       randSSxmit = $dist_uniform($urandom(),0,1);
@@ -204,9 +250,12 @@ module tb_spi_system#(parameter TCLK=20);
       end
     end
 
+  // send command to selected slave to have it transmit data
+  // process is similar to master_xmit except that we have to
+  // choose between one of two slaves to give the command
   task slave_xmit (input [7:0] datin, input integer slave_index, input integer delay);
   // Clumsy but SV won't allow variable index into array of instances
-  // More elegant option is to create an array of "virtual" interfaces
+  // More elegant option would be to create an array of "virtual" interfaces
     if (slave_index == 0) begin
       tb_ctrls[0].toXmit = datin;
       tb_ctrls[0].strobe = 2'b0;
