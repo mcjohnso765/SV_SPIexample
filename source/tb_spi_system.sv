@@ -17,7 +17,7 @@ module tb_spi_system#(parameter TCLK=20);
 
   // variables for test vector generation and assertion checking
   integer testCountm, testCounts;
-  reg [7:0] checkMXmit;       // when master is strobed, save copy of data in checkMXmit
+  reg [7:0] checkMXmit;       // when master strobed, save xmit data in checkMXmit
   reg [7:0] mrandToXmit;      // test data for master to transmit
   reg [7:0] srandToXmit;      // test data for slave transmit
   reg [7:0] checkSXmit[1:0];  // keep copy of slave xmit data for later checking
@@ -68,12 +68,15 @@ module tb_spi_system#(parameter TCLK=20);
     tb_ctrls[1].busy,
     tbClks, Rst_n);
   `else  // use source version of devices
-  master MASTER(.Ctrl(tb_ctrlm.Master), .Spim(spi.Master),.Clk_i(tbClkm), .Rst_ni(Rst_n));
-  slave #(.ID(0)) SLAVE0 (.Ctrl(tb_ctrls[0].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
-  slave #(.ID(1)) SLAVE1 (.Ctrl(tb_ctrls[1].Slave), .Spis(spi.Slave),.Clk_i(tbClks),.Rst_ni(Rst_n));
+  master MASTER(.Ctrl(tb_ctrlm.Master), .Spim(spi.Master),
+    .Clk_i(tbClkm), .Rst_ni(Rst_n));
+  slave #(.ID(0)) SLAVE0 (.Ctrl(tb_ctrls[0].Slave), .Spis(spi.Slave),
+    .Clk_i(tbClks),.Rst_ni(Rst_n));
+  slave #(.ID(1)) SLAVE1 (.Ctrl(tb_ctrls[1].Slave), .Spis(spi.Slave),
+    .Clk_i(tbClks),.Rst_ni(Rst_n));
   `endif
 
-  // tb assertion logic to check that slaves receive correct value transmitted by master
+  // assertion logic checks that slaves receive correct value transmitted by master
 
   always @(posedge tb_ctrlm.strobe) begin  
     // when master is strobed, save copy of value to be transmitted
@@ -81,19 +84,21 @@ module tb_spi_system#(parameter TCLK=20);
     // and the ID of the slave to receive that value
     checkSSm = tb_ctrlm.ss;         
     end
-
-  always @* begin  // whenever received value at slave changes, save a copy for checking
+  // whenever received value at slave changes, save a copy for checking
+  always @* begin  
     if (checkSSm[0]) checkRcvds = tb_ctrls[0].Rcvd;
     else if (checkSSm[1]) checkRcvds = tb_ctrls[1].Rcvd;
     end
   
   // when selected slave says it has newly received data ready to be read, compare
   // transmitted and received values
-  assign checkSReady = (checkSSm[0] & tb_ctrls[0].Ready) | (checkSSm[1] & tb_ctrls[1].Ready);
+  assign checkSReady = 
+    (checkSSm[0] & tb_ctrls[0].Ready) | (checkSSm[1] & tb_ctrls[1].Ready);
   always @(posedge checkSReady) begin
     @(posedge tbClks);
-    assert (checkRcvds == checkMXmit) $display("%t correct value %b received by slave",
-        $time,checkRcvds);
+    assert (checkRcvds == checkMXmit) 
+        $display("%t correct value %b received by slave",
+          $time,checkRcvds);
       else $display("%t incorect value %b received by slave, expected %b",
         $time,checkRcvds,checkMXmit);
     end
