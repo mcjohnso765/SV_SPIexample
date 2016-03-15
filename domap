@@ -1,3 +1,7 @@
+rm -rf mapped >& /dev/null
+mkdir mapped
+rm -rf analyzed >& /dev/null
+mkdir analyzed
 /package/eda/synopsys/syn-I-2013.12-SP5-9/bin/dc_shell-t <<!
 #
 # Synthesize master

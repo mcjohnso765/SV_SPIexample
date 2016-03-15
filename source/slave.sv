@@ -5,29 +5,31 @@
 // components:
 //   sck rising edge detector, generates rsh_ena only when slave select asserted
 //   serial to parallel shift reg with shift enable (rsh_ena)
-//   bit counter: 0 to 7 counter, reset to 0, assert Done on count of 7, enabled by rsh_ena, wrap-around 7 to 0
-//   output buffer Ctrl.Rcvd with enable. Loads shift reg contents on Done from bit counter
+//   bit counter: 0 to 7 counter, reset to 0, assert Done on count of 7, 
+//     enabled by rsh_ena, wrap-around 7 to 0
+//   output buffer Ctrl.Rcvd with enable. Loads shift reg contents on Done signal
 //   Ctrl.Ready = Done from bit counter
 
-module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk_i, Rst_ni);
+module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, 
+                                  input Clk_i, Rst_ni);
 
   logic sck1,sck2;                  // synchronizer for SPI clock input
   logic [3:0] bitcnt_r,bitcnt_nxt;  // count # bits in current 1 byte transfer
-  logic rsh_ena,done;               // shift enable for receive, receive/xmit done
+  logic rsh_ena,done;               // shift enable for rcv, receive/xmit done
   logic [7:0] spi_in_nxt,spi_in_r;  // shift register for incoming data on MOSI
   logic [7:0] rcvd_nxt,rcvd_r;      // buffer data from SPI shift register
   logic mosi_sync1, mosi_sync2;     // synchronizer for MOSI input
-  logic strobe2, strobe_sync;       // synchronizer for strope input (flags new data to transmit)
-  typedef enum {IS_EMPTY,IS_FULL} preXmitBuf_st_t;   // state of buffer feeding transmit shift reg.
-  preXmitBuf_st_t preXmitBuf_st, preXmitBuf_st_nxt;  // transmit buffer state and next state
-  logic preXmitBuf_clear;           // indicate that xmit buffer is clear for new value to xmit
+  logic strobe2, strobe_sync;       // synchronizer for strobe input
+  typedef enum {IS_EMPTY,IS_FULL} preXmitBuf_st_t;   
+  preXmitBuf_st_t preXmitBuf_st, preXmitBuf_st_nxt;  // xmit buff state, next state
+  logic preXmitBuf_clear;           // xmit buffer clear for new value to xmit
   logic xsh_ena;                    // shift enable for transmit shift reg
-  typedef enum {STROBE_WAIT, LOAD_WAIT, LOAD, XMIT} xmit_ctrl_st_t; // state of xmit process 
-  xmit_ctrl_st_t xmit_ctrl_st, xmit_ctrl_st_nxt; // state and next state for xmit process
-  logic xmit_shift, xmit_load;      // not sure xmit_shift does anything, xmit_load enables load of xmit shift reg
-  logic [7:0] preXmitBuf,preXmitBuf_nxt;  // buffer to receive data to be transmitted
+  typedef enum {STROBE_WAIT, LOAD_WAIT, LOAD, XMIT} xmit_ctrl_st_t; 
+  xmit_ctrl_st_t xmit_ctrl_st, xmit_ctrl_st_nxt; // state, next state for xmit
+  logic xmit_load;                  // enables load of xmit shift reg
+  logic [7:0] preXmitBuf,preXmitBuf_nxt;  // buffer for data to be transmitted
   logic [7:0] xmit_r, xmit_nxt;     // xmit shift register
-  logic ss1, ss2, ss_rise;          // ss1/ss2 slave select sync. ss_rise pulses when 1st selected
+  logic ss1, ss2, ss_rise;          // slave select sync. ss_rise on ss rising edge
 
 
   // Receiving 
@@ -188,7 +190,6 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
 
   // xmit FSM output logic
   always_comb begin
-    xmit_shift = 1'b0;
     xmit_load = 1'b0;
     preXmitBuf_clear = 1'b0;
     
@@ -197,7 +198,6 @@ module slave #(parameter ID=0) (SPIbus.Slave Spis, SPIctrl.Slave Ctrl, input Clk
         xmit_load = 1'b1; // enable load of XMIT SR
         end
       XMIT: begin         // allow xmit to proceed, clear xmit buff flag when done
-        xmit_shift = 1'b1;
         if ((xmit_ctrl_st == XMIT) & done) preXmitBuf_clear = 1'b1;
         end
     endcase

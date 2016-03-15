@@ -9,10 +9,12 @@
 //      it to start counting
 //    parallel to serial shift register with shift enable
 
-module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_i, Rst_ni);
+module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, 
+                              input Clk_i, Rst_ni);
 
   logic [7:0] buf_r,buf_nxt, rcv_buf_r;
-  logic inFull_r, inFull_nxt; // flag to indicate whether input buffer is full
+  // flag to indicate whether input buffer is full
+  logic inFull_r, inFull_nxt; 
   logic [3:0] bitcnt_r,bitcnt_nxt;
   logic [7:0] clkcnt_r,clkcnt_nxt;
   logic [1:0] ss_r,ss_nxt;
@@ -79,8 +81,8 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
   assign Spim.sck = sck_r;
   assign Spim.ss = ss_r;
 
-  // bitcnt holds at 0 waiting for strobe, starts counting after strobe, at 9 wrap to 0
-  // only increment after CLKDIV clock cycles
+  // bitcnt holds at 0 waiting for strobe, starts counting after strobe, 
+  // at 9 wrap to 0. Only increment after CLKDIV clock cycles
   always_comb begin
     bitcnt_nxt = bitcnt_r;
     // hold at 0 until strobe, then count can proceed at 1
@@ -118,7 +120,7 @@ module master #(CLKDIV=8'd4)(SPIctrl.Master Ctrl, SPIbus.Master Spim, input Clk_
     // start at count of 1 upon Strobe
     end else if ((clkcnt_r == 8'd0) && Ctrl.strobe) begin
       clkcnt_nxt = 1;
-    // wrape-around to 1 at max clkcnt, or start at 1 on Strobe
+    // wrap-around to 1 at max clkcnt, or start at 1 on Strobe
     end else if ((clkcnt_r == CLKDIV) || Ctrl.strobe) begin
       clkcnt_nxt = 1;
     end else begin

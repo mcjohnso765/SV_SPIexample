@@ -4,6 +4,8 @@ import ovm_pkg::*;
 // uncomment following define directive to test mapped versions of master and slaves
 // comment it to test source version
 //`define mapped
+// uncomment following directive to deliberate insert errors 
+//`define insert_error
 
 `timescale 1ns/10ps
 
@@ -17,16 +19,19 @@ module tb_spi_system#(parameter TCLK=20);
 
   // variables for test vector generation and assertion checking
   integer testCountm, testCounts;
-  reg [7:0] checkMXmit;       // when master strobed, save xmit data in checkMXmit
-  reg [7:0] mrandToXmit;      // test data for master to transmit
-  reg [7:0] srandToXmit;      // test data for slave transmit
-  reg [7:0] checkSXmit[1:0];  // keep copy of slave xmit data for later checking
-  reg [7:0] checkRcvds;       // keep copy of data last received by slave
-  reg [1:0] slaveFull;        // slave [1:0] has data ready to transmit to master
-  reg [1:0] checkSSm;         // save copy of slave select commanded to master
-  reg checkSReady;             // 1 when selected slave has rcvd data ready to check
-  integer randSS;             // used to tell master which slave to select
-  integer randSSxmit;         // which slave tb will give value to be transmitted
+  logic [7:0] checkMXmit;       // when master strobed, save xmit data in checkMXmit
+  logic [7:0] mrandToXmit;      // test data for master to transmit
+  logic [7:0] srandToXmit;      // test data for slave transmit
+  logic [7:0] checkSXmit[1:0];  // keep copy of slave xmit data for later checking
+  logic [7:0] checkRcvds;       // keep copy of data last received by slave
+  logic [1:0] slaveFull;        // slave [1:0] has data ready to transmit to master
+  logic [1:0] checkSSm;         // save copy of slave select commanded to master
+  logic checkSReady;            // 1 when selected slave has rcvd data ready to check
+  integer randSS;               // used to tell master which slave to select
+  integer randSSxmit;           // which slave tb will give value to be transmitted
+  reg assertm_pass=0, assertm_fail=0; // pulsed to make it easy to find triggered assertion
+  reg asserts0_pass=0, asserts0_fail=0;
+  reg asserts1_pass=0, asserts1_fail=0;
 
   // Top level modules
 
@@ -81,6 +86,9 @@ module tb_spi_system#(parameter TCLK=20);
   always @(posedge tb_ctrlm.strobe) begin  
     // when master is strobed, save copy of value to be transmitted
     checkMXmit = tb_ctrlm.toXmit;  
+    `ifdef insert_error
+      if ($dist_uniform($urandom(),0,1)) checkMXmit = ~checkMXmit;
+    `endif
     // and the ID of the slave to receive that value
     checkSSm = tb_ctrlm.ss;         
     end
@@ -96,11 +104,17 @@ module tb_spi_system#(parameter TCLK=20);
     (checkSSm[0] & tb_ctrls[0].Ready) | (checkSSm[1] & tb_ctrls[1].Ready);
   always @(posedge checkSReady) begin
     @(posedge tbClks);
+    assertm_pass = (checkRcvds == checkMXmit);
+    assertm_fail = ~(checkRcvds == checkMXmit);
     assert (checkRcvds == checkMXmit) 
         $display("%t correct value %b received by slave",
           $time,checkRcvds);
-      else $display("%t incorect value %b received by slave, expected %b",
-        $time,checkRcvds,checkMXmit);
+      else 
+        $display("%t incorect value %b received by slave, expected %b",
+          $time,checkRcvds,checkMXmit);
+    #1
+    assertm_pass = '0;
+    assertm_fail = '0;
     end
 
 
@@ -113,6 +127,9 @@ module tb_spi_system#(parameter TCLK=20);
     if (!tb_ctrls[0].XmitFull & !slaveFull[0]) begin 
       // save copy of data for later comparison to what master receives
       checkSXmit[0] = tb_ctrls[0].toXmit; 
+      `ifdef insert_error
+        if ($dist_uniform($urandom(),0,1)) checkSXmit[0] = ~checkSXmit[0];
+      `endif
       // wait because slave might be on verge of a data transfer
       // but doesn't know it yet
       @(posedge tb_ctrls[0].XmitFull); 
@@ -132,6 +149,9 @@ module tb_spi_system#(parameter TCLK=20);
   always @(posedge tb_ctrls[1].strobe) begin
     if (!tb_ctrls[1].XmitFull & !slaveFull[1]) begin 
       checkSXmit[1] = tb_ctrls[1].toXmit;
+      `ifdef insert_error
+        if ($dist_uniform($urandom(),0,1)) checkSXmit[1] = ~checkSXmit[1];
+      `endif
       @(posedge tb_ctrls[1].XmitFull);
       @(posedge tbClkm);
       #(20*TCLK);
@@ -148,6 +168,8 @@ module tb_spi_system#(parameter TCLK=20);
     @(posedge tbClkm);
     // if slave 0 was selected and had data to transmit
     if (tb_ctrlm.ss[0] && slaveFull[0]) begin
+      asserts0_pass = (tb_ctrlm.Rcvd == checkSXmit[0]);
+      asserts0_fail = ~(tb_ctrlm.Rcvd == checkSXmit[0]);
       // compare received and transmitted data
       assert (tb_ctrlm.Rcvd == checkSXmit[0]) 
         $display("%t correct value %b received by master from slave 0",
@@ -157,9 +179,14 @@ module tb_spi_system#(parameter TCLK=20);
           $time,tb_ctrlm.Rcvd,checkSXmit[0]);
       // mark slave as no longer having data to transmit
       slaveFull[0] = 0;
+      #1
+      asserts0_pass = '0;
+      asserts0_fail = '0;
       end
     // if slave 1 was selected and had data to transmit
     else if (tb_ctrlm.ss[1] && slaveFull[1]) begin
+      asserts1_pass = (tb_ctrlm.Rcvd == checkSXmit[1]);
+      asserts1_fail = ~(tb_ctrlm.Rcvd == checkSXmit[1]);
       assert (tb_ctrlm.Rcvd == checkSXmit[1]) 
         $display("%t correct value %b received by master from slave 1",
           $time,checkSXmit[1]);
@@ -167,6 +194,9 @@ module tb_spi_system#(parameter TCLK=20);
         $display("%t, incorrect value %b received by master, expected %b",
           $time,tb_ctrlm.Rcvd,checkSXmit[1]);
       slaveFull[1] = 0;
+      #1
+      asserts1_pass = '0;
+      asserts1_fail = '0;
       end
     end
 
@@ -195,6 +225,7 @@ module tb_spi_system#(parameter TCLK=20);
   // give SPI master something to transmit
   initial  
     begin
+
     // set fixed initial seed for repeatability
     mrandToXmit = $urandom(3); 
     master_init();
