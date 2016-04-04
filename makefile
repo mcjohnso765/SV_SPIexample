@@ -133,7 +133,7 @@ sim_source:
 
 # This way just runs it like normal and only sets up the simulation but doesn't
 # run it or add any waveforms
-	@$(SIMULATE) -i -t ps source_work.$(TB_ENTITY)
+	@$(SIMULATE) -i -t ps source_work.$(TB_ENTITY) -do wave.do
 
 	@echo -e "Done simulating the source design\n\n"
 	

@@ -5,7 +5,7 @@ import ovm_pkg::*;
 // comment it to test source version
 //`define mapped
 // uncomment following directive to deliberate insert errors 
-//`define insert_error
+`define insert_error
 
 `timescale 1ns/10ps
 
